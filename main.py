@@ -31,8 +31,9 @@ class Manager(Filter):
 
 class DrZi(Filter):
     async def __call__(self, message: Message) -> bool:
-        normalize_message = re.sub(r'\W|_|ʼ', ' ', message.text.lower())
-        return not set(normalize_message.split()).isdisjoint(DOCTOR)
+        if message.text:
+            normalize_message = re.sub(r'\W|_|ʼ', ' ', message.text.lower())
+            return not set(normalize_message.split()).isdisjoint(DOCTOR)
 
 
 @dp.message(CommandStart())
@@ -58,7 +59,8 @@ async def help_voice(callback: CallbackQuery):
 @dp.message(Command('translate'))
 async def translate_text(message: Message, choose_message: int = 1):
     if message.reply_to_message:
-        await message.reply(f'Українською це:\n{await translit(message.reply_to_message.text)}')
+        await bot.send_message(message.chat.id, f'Українською це:\n{await translit(message.reply_to_message.text)}',
+                               reply_to_message_id=message.reply_to_message.message_id)
     else:
         await bot.send_message(message.chat.id, THIS_MESSAGE,
                                reply_to_message_id=message.message_id - choose_message, reply_markup=KB_TEXT)
@@ -73,9 +75,15 @@ async def get_text(callback: CallbackQuery):
 async def translate_voice(message: Message, choose_message: int = 1):
     if message.reply_to_message:
         document = message.reply_to_message.voice
-        await bot.download(document, f'voices/{document.file_id}.ogg')
+        try:
+            await bot.download(document, f'voices/{document.file_id}.ogg')
+        except AttributeError:
+            await bot.send_message(message.chat.id, 'Це для голосових повідомлень, інформація тут */help*',
+                                   reply_to_message_id=message.reply_to_message.message_id, parse_mode='MarkdownV2')
+            return
         voice = await speech_to_text(document)
-        await message.reply(f'Тут сказано:\n{voice}') if voice else VOICE_404
+        await bot.send_message(message.chat.id, f'Тут сказано:\n{voice}' if voice else VOICE_404,
+                               reply_to_message_id=message.reply_to_message.message_id)
         await AsyncPath(f'voices/{document.file_id}.ogg').unlink()
     else:
         await bot.send_message(message.chat.id, THIS_AUDIO,
@@ -85,9 +93,14 @@ async def translate_voice(message: Message, choose_message: int = 1):
 @dp.callback_query(F.data == 'speach')
 async def get_voice(callback: CallbackQuery):
     document = callback.message.reply_to_message.voice
-    await bot.download(document, f'voices/{document.file_id}.ogg')
+    try:
+        await bot.download(document, f'voices/{document.file_id}.ogg')
+    except AttributeError:
+        await callback.message.edit_text('Це для голосових повідомлень, інформація тут */help*',
+                                         parse_mode='MarkdownV2')
+        return
     voice = await speech_to_text(document)
-    await callback.message.edit_text(f'Тут сказано:\n{voice}') if voice else VOICE_404
+    await callback.message.edit_text(f'Тут сказано:\n{voice}' if voice else VOICE_404)
     await AsyncPath(f'voices/{document.file_id}.ogg').unlink()
 
 
@@ -115,7 +128,7 @@ async def settings(message: Message):
 
 @dp.message(DrZi())
 async def doctor(message: Message):
-    await message.answer('Доктор Зі, до вас звертаються.')
+    await message.answer('*[Доктор Зі](tg://user?id=991986913)*, до вас звертаються\.', parse_mode='MarkdownV2')
 
 
 @dp.message()
@@ -136,8 +149,7 @@ async def speech_to_text(voice: Voice) -> str:
     async with async_open(f'voices/{voice.file_id}.ogg', 'rb') as audio:
         source = {'buffer': audio, 'mimetype': voice.mime_type}
         response = await dg_client.transcription.prerecorded(source, DG_OPTIONS)
-        return (response.get('results', VOICE_404).get('channels', VOICE_404)[0]
-                .get('alternatives', VOICE_404)[0].get('transcript', VOICE_404))
+        return response.get('results').get('channels')[0].get('alternatives')[0].get('transcript')
 
 
 async def main():
