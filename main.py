@@ -9,9 +9,9 @@ from aiopath import AsyncPath
 from deepgram import Deepgram
 
 from calendar_handler import rt
-from config import TOKEN, DEEP_TOKEN
+from config import TOKEN, DEEP_TOKEN, MANAGER
 from constants import *
-from filters import Admin, DrZi, Forwarded
+from filters import Admin, DrZi, Forwarded, Manager
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
@@ -88,7 +88,7 @@ async def get_voice(callback: CallbackQuery):
     await AsyncPath(f'voices/{document.file_id}.ogg').unlink()
 
 
-@dp.message(Command('id'), Admin())
+@dp.message(Command('id'), Admin() or Manager())
 async def get_id(message: Message):
     if message.reply_to_message and message.reply_to_message.contact:
         await message.reply(
@@ -112,7 +112,8 @@ async def settings(message: Message):
 
 @dp.message(DrZi())
 async def doctor(message: Message):
-    await message.answer('*[Доктор Зі](tg://user?id=991986913)*, до вас звертаються\.', parse_mode='MarkdownV2')
+    await message.answer(
+        f'*[Доктор Зі](tg://user?id={MANAGER.get("Z1")})*, до вас звертаються\.', parse_mode='MarkdownV2')
 
 
 @dp.message(Forwarded())
@@ -137,7 +138,7 @@ async def speech_to_text(voice: Voice) -> str:
 
 async def main():
     await bot(DeleteWebhook(drop_pending_updates=True))
-    if Admin():
+    if Admin() or Manager():
         await bot.set_my_commands([BotCommand(command=command[0], description=command[1]) for command in ADM_COMMANDS])
     else:
         await bot.set_my_commands([BotCommand(command=command[0], description=command[1]) for command in USR_COMMANDS])

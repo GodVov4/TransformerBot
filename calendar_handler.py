@@ -12,7 +12,7 @@ calendar = Calendar()
 current_month = None
 
 
-@rt.message(Command('calendar'), Admin(), Manager())
+@rt.message(Command('calendar'), Admin() or Manager())
 async def show_calendar(message: Message):
     global current_month
     current_month = date(date.today().year, date.today().month, 1)
@@ -33,13 +33,10 @@ async def previous_month(callback: CallbackQuery):
 
 async def create_calendar(shift: int = 0) -> InlineKeyboardMarkup:
     global current_month
-    print(1, current_month.year, current_month.month)
     try:
         current_month = date(current_month.year, current_month.month+shift, 1)
-        print(2, current_month.year, current_month.month)
     except ValueError:
         current_month = date(current_month.year+shift, current_month.month+shift-shift*12, 1)
-        print(3, current_month.year, current_month.month)
     year = current_month.strftime('%B %Y')
     days_list = calendar.monthdayscalendar(current_month.year, current_month.month)
     weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
