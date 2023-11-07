@@ -1,39 +1,23 @@
 import asyncio
-import re
 
 from aiofile import async_open
 from aiogram import Bot, Dispatcher, F
-from aiogram.filters import CommandStart, Command, Filter
+from aiogram.filters import CommandStart, Command
 from aiogram.methods import DeleteWebhook
 from aiogram.types import *
 from aiopath import AsyncPath
 from deepgram import Deepgram
 
-from config import *
+from calendar_handler import rt
+from config import TOKEN, DEEP_TOKEN
 from constants import *
+from filters import Admin, DrZi, Forwarded
 
 bot = Bot(TOKEN)
 dp = Dispatcher()
+dp.include_router(rt)
 
 dg_client = Deepgram(DEEP_TOKEN)
-brain = False
-
-
-class Admin(Filter):
-    async def __call__(self, message: Message) -> bool:
-        return message.from_user.id in ADMIN.values()
-
-
-class Manager(Filter):
-    async def __call__(self, message: Message) -> bool:
-        return message.from_user.id in MANAGER.values()
-
-
-class DrZi(Filter):
-    async def __call__(self, message: Message) -> bool:
-        if message.text:
-            normalize_message = re.sub(r'\W|_|ʼ', ' ', message.text.lower())
-            return not set(normalize_message.split()).isdisjoint(DOCTOR)
 
 
 @dp.message(CommandStart())
@@ -131,13 +115,12 @@ async def doctor(message: Message):
     await message.answer('*[Доктор Зі](tg://user?id=991986913)*, до вас звертаються\.', parse_mode='MarkdownV2')
 
 
-@dp.message()
+@dp.message(Forwarded())
 async def forwarded(message: Message):
-    if message.forward_from and (message.chat.id == message.from_user.id):
-        if message.text:
-            await translate_text(message, 0)
-        elif message.voice:
-            await translate_voice(message, 0)
+    if message.text:
+        await translate_text(message, 0)
+    elif message.voice:
+        await translate_voice(message, 0)
 
 
 async def translit(message: str) -> str:
@@ -158,7 +141,10 @@ async def main():
         await bot.set_my_commands([BotCommand(command=command[0], description=command[1]) for command in ADM_COMMANDS])
     else:
         await bot.set_my_commands([BotCommand(command=command[0], description=command[1]) for command in USR_COMMANDS])
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 
 if __name__ == '__main__':

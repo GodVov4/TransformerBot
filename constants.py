@@ -9,6 +9,7 @@ USR_COMMANDS = (
 
 ADM_COMMANDS = USR_COMMANDS + (
     ('settings', 'Налаштування'),
+    ('calendar', 'Календар'),
     ("id", "Ваш ІД"),
 )
 
